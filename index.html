@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Ketchuplus+ – Interaktív szabálymagyarázó (HTML)</title>
+  <style>
+    :root{
+      --bg:#0b0b0f; --panel:#13141a; --muted:#9aa0aa; --hi:#e2e8f0; --accent:#e11d48; --ok:#16a34a; --bad:#ef4444;
+      --card-w:64px; --card-h:96px; --radius:12px; --shadow:0 4px 16px rgba(0,0,0,.35)
+    }
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:#e5e7eb;font:16px/1.5 system-ui,Segoe UI,Roboto,Ubuntu}
+    header{max-width:1200px;margin:0 auto;padding:24px 16px;display:flex;gap:16px;align-items:center;justify-content:space-between}
+    h1{font-size:22px;margin:0} .sub{opacity:.75;font-size:14px}
+    .wrap{max-width:1200px;margin:0 auto;padding:0 16px 40px}
+    .tabs{display:flex;gap:8px;margin:8px 0 16px}
+    .tab{padding:10px 14px;border-radius:12px;background:#1a1b22;border:1px solid #242633;cursor:pointer}
+    .tab.active{border-color:#3b3f55;background:#202231}
+    .row{display:flex;gap:16px;align-items:start}
+    .panel{flex:1;background:var(--panel);border:1px solid #232631;border-radius:16px;padding:12px;box-shadow:var(--shadow)}
+    .panel h3{margin:4px 0 8px;font-size:16px}
+    .controls{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}
+    button{padding:10px 14px;border-radius:12px;border:1px solid #2b2f3d;background:#1b1d27;color:#e5e7eb;cursor:pointer}
+    button:hover{background:#26293a} button:disabled{opacity:.45;cursor:not-allowed}
+
+    /* Asztalnézet */
+    .table{position:relative;aspect-ratio:16/9;min-height:480px;background:radial-gradient(ellipse at center,#0f1218 0%,#0b0b0f 70%);border-radius:24px;border:1px solid #242633;overflow:hidden}
+    .center-pile{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:calc(var(--card-w) * 3);height:calc(var(--card-h) * 1.4);display:flex;align-items:end;gap:6px;flex-wrap:wrap;padding:8px;border-radius:16px;background:#0e1117;border:1px dashed #2b2f3d}
+    .hand{position:absolute;display:flex;gap:6px}
+    .p0{left:50%;bottom:8px;transform:translateX(-50%)}
+    .p1{right:8px;top:50%;transform:translateY(-50%) rotate(90deg);transform-origin:center}
+    .p2{left:50%;top:8px;transform:translateX(-50%) rotate(180deg)}
+    .p3{left:8px;top:50%;transform:translateY(-50%) rotate(-90deg);transform-origin:center}
+    .player-info{position:absolute;padding:6px 10px;border-radius:10px;background:#10131a;border:1px solid #2b2f3d;font-size:12px;opacity:.9}
+    .i0{left:50%;bottom:120px;transform:translateX(-50%)}
+    .i1{right:16px;top:50%;transform:translateY(-50%)}
+    .i2{left:50%;top:120px;transform:translateX(-50%)}
+    .i3{left:16px;top:50%;transform:translateY(-50%)}
+
+    .card{width:var(--card-w);height:var(--card-h);border-radius:var(--radius);background:#fff;border:1px solid #d4d4d8;box-shadow:0 2px 8px rgba(0,0,0,.25);position:relative;user-select:none}
+    .card.red{color:#b91c1c;border-color:#fecaca}
+    .card .tl,.card .br{position:absolute;font-size:12px}
+    .card .tl{left:6px;top:4px}
+    .card .br{right:6px;bottom:4px}
+    .card .suit{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:26px}
+    .card.hu{background:#fbf4e6;border-color:#e9d5a1;color:#a16207}
+    .ghost{opacity:.4}
+
+    /* Animációk */
+    .fly{position:absolute;transition:transform .5s ease, left .5s ease, top .5s ease}
+    .hand-anim{position:absolute;width:120px;height:120px;border-radius:60px;background:rgba(255,255,255,.07);border:1px solid #394054;left:50%;top:10%;transform:translate(-50%,-50%);opacity:0;pointer-events:none}
+    .hand-anim.show{animation:slap 700ms ease forwards}
+    @keyframes slap{0%{opacity:0;transform:translate(-50%,-150%) scale(.7)}60%{opacity:1;transform:translate(-50%,-20%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(1)} }
+
+    .hint{font-size:14px;padding:8px 10px;border-radius:12px;border:1px solid #334155;background:#0f1320}
+    .hint.ok{border-color:#14532d;background:#0b1a10}
+    .hint.bad{border-color:#7f1d1d;background:#1a0f0f}
+
+    /* Gyakorló mód */
+    .practice{display:grid;grid-template-columns:1.2fr .8fr;gap:16px}
+    @media (max-width:900px){.practice{grid-template-columns:1fr}}
+    .pile-strip{display:flex;gap:6px;flex-wrap:wrap}
+    .kbd{font-family:ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;font-size:12px;border:1px solid #303549;background:#121521;padding:2px 6px;border-radius:6px}
+  </style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Ketchuplus+ • Interaktív szabálymagyarázó</h1>
+    <div class="sub">4 játékosos asztalnézet (felülnézet) + Gyakorló mód • HTML/CSS/JS</div>
+  </div>
+  <div class="sub">Szabályok a megadott leírás alapján</div>
+</header>
+<div class="wrap">
+  <div class="tabs">
+    <button class="tab active" data-tab="table">Asztalnézet</button>
+    <button class="tab" data-tab="practice">Gyakorló mód</button>
+  </div>
+
+  <!-- ASZTAL -->
+  <section id="tab-table" class="row">
+    <div class="panel" style="flex:2">
+      <h3>Felülnézetű asztal – 4 játékos</h3>
+      <div id="table" class="table">
+        <div id="centerPile" class="center-pile"></div>
+        <div class="hand p0" id="hand0"></div>
+        <div class="hand p1" id="hand1"></div>
+        <div class="hand p2" id="hand2"></div>
+        <div class="hand p3" id="hand3"></div>
+        <div class="player-info i0" id="info0">Játékos 1 • nyert: <span>0</span></div>
+        <div class="player-info i1" id="info1">Játékos 2 • nyert: <span>0</span></div>
+        <div class="player-info i2" id="info2">Játékos 3 • nyert: <span>0</span></div>
+        <div class="player-info i3" id="info3">Játékos 4 • nyert: <span>0</span></div>
+        <div class="hand-anim" id="slapFX"></div>
+      </div>
+      <div class="controls">
+        <button id="btnFlip">Lap felfordítása (aktuális játékos)</button>
+        <button id="btnSlap" disabled>Rácsapás (csup)</button>
+        <button id="btnTake" disabled>Dobópakli begyűjtése</button>
+        <button id="btnNewRound">Új osztás</button>
+      </div>
+      <div class="hint" id="tableHint">Tipp: a kör mindig az kezdi, aki legutóbb begyűjtötte a kupacot.</div>
+    </div>
+
+    <div class="panel" style="max-width:420px">
+      <h3>Szabályrövid (amit figyelünk)</h3>
+      <ul>
+        <li><b>Képeslap/Ász</b>: K, Q, J, A → <b>szabad</b> csupni.</li>
+        <li><b>Azonos szín (4×)</b>: négy egymás után piros vagy fekete → <b>szabad</b>.</li>
+        <li><b>Azonos forma (3×)</b>: három egymás után ♠/♥/♦/♣ → <b>szabad</b>.</li>
+        <li><b>Azonos érték (2×)</b>: két egymás utáni azonos szám/érték → <b>szabad</b>.</li>
+        <li><b>Hetes</b>: <b>nem</b> szabad csupni, irányt vált; a sorokban <i>láthatatlan</i>.</li>
+        <li><b>Joker</b>: <b>nem</b> szabad csupni, kivéve ha két Joker egymás után — a másodikra <b>szabad</b>.</li>
+        <li><b>Magyar kártya</b>: <b>nem</b> szabad csupni (gyűjtendő lapok).</li>
+        <li><b>3-as</b>: szabad csupni, <b>nem</b> viszi a kupacot; a csapó játékos egy választott játékos gyűjtött paklijának <b>2 legfelső</b> lapját elveszi (ha van).</li>
+        <li><b>Büntetés</b>: rossz csup = <b>+2</b> lap; Jokerre csup = <b>+5</b> lap — <i>mindig</i> a SAJÁT gyűjtött paklid tetejéről tedd a dobópaklira.</li>
+      </ul>
+      <div id="legalBox" class="hint" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <!-- GYAKORLÓ -->
+  <section id="tab-practice" class="row" style="display:none">
+    <div class="panel practice">
+      <div>
+        <h3>Gyakorló mód – döntsd el, szabad-e csupni</h3>
+        <div class="controls">
+          <button id="btnPracticeNext">Új helyzet</button>
+          <span class="kbd">Szabály: K/Q/J/A • 4× szín • 3× forma • 2× érték • 3-as külön • 7 láthatatlan • Joker kivétel</span>
+        </div>
+        <div>
+          <div style="margin:6px 0 4px">Dobópakli (felül a legfrissebb):</div>
+          <div id="practicePile" class="pile-strip"></div>
+        </div>
+        <div class="controls">
+          <button id="btnPracticeSlap">Szerintem <b>szabad</b> csupni</button>
+          <button id="btnPracticeNoSlap">Szerintem <b>nem</b> szabad csupni</button>
+        </div>
+      </div>
+      <div>
+        <h3>Eredmény</h3>
+        <div id="practiceVerdict" class="hint">Kattints az „Új helyzet” gombra!</div>
+        <div style="margin-top:8px">
+          Helyes válaszok: <b id="scoreGood">0</b> • Téves: <b id="scoreBad">0</b>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+// ======= Kártyamodellek =======
+const SUITS = ["♠","♥","♦","♣"]; // forma
+const COLORS = {"♠":"fekete","♣":"fekete","♥":"piros","♦":"piros"};
+const RANKS = ["A","K","Q","J","10","9","8","7","6","5","4","3","2"]; // egyszerűsített sorrend
+
+function makeFrench(rank, suit){
+  const color = COLORS[suit];
+  const tag = rank==="7"?"hetes":(rank==="JOKER"?"joker":(/[KQJ]/.test(rank)?"keplap":(rank==="A"?"asz":"szam")));
+  return {kind:"fr", rank, suit, color, tag};
+}
+function makeHungarian(name){ return {kind:"hu", rank:name}; }
+
+// 5 pakli francia + 1 magyar – a demohoz elegendő részhalmazt generálunk, hogy a szabályok szituációi előjöjjenek.
+function buildFrenchDecks(){
+  const one = [];
+  for(const s of SUITS){
+    for(const r of RANKS){ one.push(makeFrench(r,s)); }
+  }
+  // tegyünk néhány jokert
+  one.push(makeFrench("JOKER","♠"));
+  one.push(makeFrench("JOKER","♥"));
+  // 5 pakli
+  let big=[]; for(let i=0;i<5;i++) big = big.concat(JSON.parse(JSON.stringify(one)));
+  return big;
+}
+function buildHungarianDeck(){
+  const faces=["Ász","Király","Felső","Alsó"]; const nums=["7","8","9","10"]; const suits=["Tök","Zöld","Piros","Makk"]; // csak megjelenítéshez
+  const hu=[]; for(const st of suits){ for(const f of faces){ hu.push(makeHungarian(f+" ("+st+")")); } for(const n of nums){ hu.push(makeHungarian(n+" ("+st+")")); } }
+  return hu; // ~32
+}
+
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+
+// ======= Szabályok =======
+function isFaceOrAce(c){ return c.kind==="fr" && (c.tag==="keplap" || c.tag==="asz"); }
+function isSeven(c){ return c.kind==="fr" && c.tag==="hetes"; }
+function isJoker(c){ return c.kind==="fr" && c.tag==="joker"; }
+function sameColor(a,b){ return a.kind==="fr"&&b.kind==="fr"&&a.color===b.color; }
+function sameSuit(a,b){ return a.kind==="fr"&&b.kind==="fr"&&a.suit===b.suit; }
+function sameRank(a,b){ return a.kind==="fr"&&b.kind==="fr"&&a.rank===b.rank; }
+function stripSevens(stack){ return stack.filter(c=>!isSeven(c)); }
+
+function canChup(pile){
+  if(!pile.length) return {allowed:false, reason:"Nincs lap a kupacon."};
+  const top = pile[pile.length-1];
+  if(top.kind==="hu") return {allowed:false, reason:"Magyar kártyára nem szabad csupni."};
+  if(isSeven(top)) return {allowed:false, reason:"Hetesre nem szabad; irányt vált, láthatatlan a sorokban."};
+  if(isJoker(top)){
+    const prev=pile[pile.length-2];
+    if(prev&&isJoker(prev)) return {allowed:true, reason:"Két Joker egymás után → a másodikra szabad."};
+    return {allowed:false, reason:"Jokerre nem szabad csupni."};
+  }
+  if(isFaceOrAce(top)) return {allowed:true, reason:"Képeslap/Ász → szabad."};
+  const eff=stripSevens(pile);
+  if(eff.length>=4){ const [a,b,c,d]=eff.slice(-4); if(sameColor(a,b)&&sameColor(b,c)&&sameColor(c,d)) return {allowed:true, reason:"4 egymás utáni azonos szín."}; }
+  if(eff.length>=3){ const [a,b,c]=eff.slice(-3); if(sameSuit(a,b)&&sameSuit(b,c)) return {allowed:true, reason:"3 egymás utáni azonos forma."}; }
+  if(eff.length>=2){ const [a,b]=eff.slice(-2); if(sameRank(a,b)) return {allowed:true, reason:"2 egymás utáni azonos érték."}; }
+  if(top.kind==="fr"&&top.rank==="3") return {allowed:true, reason:"3-as különszabály: szabad, de nem viszi a kupacot."};
+  return {allowed:false, reason:"Számozott lap → nincs feltétel."};
+}
+
+// ======= UI segéd =======
+function el(id){return document.getElementById(id)}
+function cardEl(c){
+  const d=document.createElement('div'); d.className='card'+(c.kind==='hu'?' hu':'')+((c.kind==='fr'&&c.color==='piros')?' red':'');
+  const tl=document.createElement('div'); tl.className='tl';
+  const br=document.createElement('div'); br.className='br';
+  const mid=document.createElement('div'); mid.className='suit';
+  if(c.kind==='hu'){ tl.textContent='HU'; br.textContent='HU'; mid.textContent=c.rank.split(' ')[0]; }
+  else{ tl.textContent=c.rank; br.textContent=c.rank; mid.textContent=c.suit; }
+  d.append(tl,mid,br); return d;
+}
+
+// ======= Asztal motor =======
+const hands=[el('hand0'),el('hand1'),el('hand2'),el('hand3')];
+const infos=[el('info0'),el('info1'),el('info2'),el('info3')];
+const centerPileEl=el('centerPile');
+const legalBox=el('legalBox');
+const slapFX=el('slapFX');
+let players, turn, centerPile, lastWinner;
+
+function newDeal(){
+  const deck = shuffle(buildFrenchDecks().concat(buildHungarianDeck()));
+  const per=Math.floor(deck.length/4); players=[0,1,2,3].map(()=>({draw:[], won:[]}));
+  for(let i=0;i<4;i++){ players[i].draw = deck.slice(i*per,(i+1)*per); }
+  centerPile=[]; turn = (lastWinner??0);
+  renderTable(); legal('Új osztás kész. A kezdő játékos: '+(turn+1)+'.');
+}
+
+function renderTable(){
+  // kezek – csak a felső 5 fedett kártyát jelöljük placeholderként
+  hands.forEach((h,i)=>{ h.innerHTML=''; const cnt=Math.min(players[i].draw.length,5); for(let k=0;k<cnt;k++){ const g=document.createElement('div'); g.className='card ghost'; h.appendChild(g);} });
+  // közép
+  centerPileEl.innerHTML=''; centerPile.forEach(c=>centerPileEl.appendChild(cardEl(c)));
+  // info
+  infos.forEach((i,idx)=>{ i.querySelector('span').textContent = String(players[idx].won.length); i.style.outline = (idx===turn)?'2px solid #475569':'none'; });
+  // gombok
+  const verdict=canChup(centerPile);
+  el('btnSlap').disabled = !verdict.allowed;
+  el('btnTake').disabled = !centerPile.length;
+  legal(verdict.allowed?('SZABAD csupni — '+verdict.reason):('NEM szabad csupni — '+verdict.reason));
+}
+
+function flip(){
+  const p=players[turn]; if(!p.draw.length){ nextTurn(); return; }
+  const c=p.draw.pop(); // felülről veszünk
+  // animált repülés a középre
+  const ghost=document.createElement('div'); ghost.className='card ghost fly'; document.body.appendChild(ghost);
+  const from=hands[turn].getBoundingClientRect(); const to=centerPileEl.getBoundingClientRect();
+  ghost.style.left=(from.left+8)+'px'; ghost.style.top=(from.top+8)+'px';
+  requestAnimationFrame(()=>{ ghost.style.left=(to.left+8)+'px'; ghost.style.top=(to.top+8)+'px'; ghost.style.transform='scale(.9)'; })
+  setTimeout(()=>{ ghost.remove(); centerPile.push(c); renderTable(); afterFlipEffects(c); }, 520);
+}
+
+function afterFlipEffects(c){
+  if(isSeven(c)) { // irányváltás
+    turn = (turn+3)%4; // egyszerű irányváltás: az előző játékos előtti jön
+  } else { turn = (turn+1)%4; }
+}
+
+function slap(){
+  const verdict=canChup(centerPile); if(!verdict.allowed){ punish(2, currentPlayerIndex()); return; }
+  // 3-as különkezelés
+  const top=centerPile[centerPile.length-1];
+  if(top.kind==='fr' && top.rank==='3'){
+    slapFX.classList.add('show'); setTimeout(()=>slapFX.classList.remove('show'),700);
+    // válasszunk céljátékost (egyszerűség: a következő játékost), vedd el a gyűjtöttje tetejéről 2 lapot
+    const target=(turn)%4; const thief=(turn+3)%4; // a csapást tételezzük az előző játékostól jövőnek
+    const take=Math.min(2, players[target].won.length); const stolen=players[target].won.splice(-take, take);
+    players[thief].won.push(...stolen);
+    legal('3-as csapás: J'+(thief+1)+' elvette J'+(target+1)+' gyűjtött paklijának '+take+' legfelső lapját.');
+    renderTable(); return;
+  }
+  // normál csapás: begyűjti a kupacot, ő kezd
+  const winner=(turn+3)%4; // aki észreveszi, tipikusan az előző játékos; itt animáció jelleggel
+  slapFX.classList.add('show'); setTimeout(()=>slapFX.classList.remove('show'),700);
+  players[winner].won.push(...centerPile); centerPile=[]; lastWinner=winner; turn=winner;
+  legal('Helyes csup! J'+(winner+1)+' begyűjtötte a kupacot és ő kezd.');
+  renderTable();
+}
+
+function punish(n, who){ // +2 / +5 büntetés – saját gyűjtöttből megy a dobópaklira
+  const take=Math.min(n, players[who].won.length); const out=players[who].won.splice(-take,take);
+  centerPile.push(...out); legal('Büntetés: J'+(who+1)+' +'+n+' lapot tett a saját gyűjtöttjéből a kupacra.'); renderTable();
+}
+function currentPlayerIndex(){ return (turn+3)%4; }
+function nextTurn(){ turn=(turn+1)%4; renderTable(); }
+function legal(msg){ legalBox.textContent=msg; }
+
+// — gombok
+el('btnFlip').onclick=flip;
+el('btnSlap').onclick=slap;
+el('btnTake').onclick=()=>{ if(!centerPile.length) return; const w=(turn+3)%4; players[w].won.push(...centerPile); centerPile=[]; lastWinner=w; turn=w; legal('Kupac begyűjtve. J'+(w+1)+' kezd.'); renderTable(); };
+el('btnNewRound').onclick=newDeal;
+
+// ======= Gyakorló mód =======
+let scoreGood=0, scoreBad=0; const pPileEl=el('practicePile'); const verdictEl=el('practiceVerdict');
+let practicePile=[];
+function practiceNew(){
+  // generáljunk 4–8 lapos helyzeteket, amikben esély van szabályokra
+  const d=shuffle(buildFrenchDecks().slice(0,80).concat(buildHungarianDeck().slice(0,20)));
+  const k=4+Math.floor(Math.random()*5); practicePile=d.slice(0,k);
+  renderPractice(); verdictEl.className='hint'; verdictEl.textContent='Döntsd el, szabad-e csupni!';
+}
+function renderPractice(){ pPileEl.innerHTML=''; practicePile.forEach(c=>pPileEl.appendChild(cardEl(c))); }
+function practiceAnswer(thinksAllowed){ const v=canChup(practicePile); const ok = v.allowed===thinksAllowed; if(ok){ scoreGood++; verdictEl.className='hint ok'; verdictEl.textContent='Helyes! '+(v.allowed?'Szabad':'Nem szabad')+' csupni — '+v.reason; } else { scoreBad++; verdictEl.className='hint bad'; verdictEl.textContent='Nem ez a helyes. Valójában '+(v.allowed?'SZABAD':'NEM szabad')+' csupni — '+v.reason; } el('scoreGood').textContent=scoreGood; el('scoreBad').textContent=scoreBad; }
+
+el('btnPracticeNext').onclick=practiceNew;
+el('btnPracticeSlap').onclick=()=>practiceAnswer(true);
+el('btnPracticeNoSlap').onclick=()=>practiceAnswer(false);
+
+// ======= Tab váltás =======
+const tabs=[...document.querySelectorAll('.tab')];
+tabs.forEach(t=>t.onclick=()=>{ tabs.forEach(x=>x.classList.remove('active')); t.classList.add('active'); const key=t.dataset.tab; document.getElementById('tab-table').style.display= key==='table'? 'flex':'none'; document.getElementById('tab-practice').style.display= key==='practice'? 'flex':'none'; });
+
+// start
+newDeal(); practiceNew();
+</script>
+</body>
+</html>
